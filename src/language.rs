@@ -26,10 +26,6 @@ impl Words {
         })
     }
 
-    // pub fn get_all_words(&self) -> Vec<String> {
-    //     self.list
-    // }
-
     /// Open and read the file associate to current language
     fn read_file(language: &Language) -> Result<String, BIP32Error> {
         let read_file =
@@ -75,6 +71,11 @@ impl Words {
         }
 
         Ok(words)
+    }
+
+    /// Does the current language have this word in the dictionnary ?
+    pub fn contain_word(&self, word: String) -> bool {
+        self.list.iter().any(|w| w == &word)
     }
 }
 

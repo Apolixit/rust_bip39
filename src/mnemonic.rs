@@ -1,12 +1,13 @@
 use std::{fmt::Display, u8};
 
 use crate::{
-    entropy::{Entropy, EntropySize},
+    entropy::{Bytes, Entropy, EntropySize},
     error::BIP32Error,
     language::{Language, Words},
-    BITS_LEN_ITERATION,
+    utils, BITS_LEN_ITERATION,
 };
 use bitreader::BitReader;
+use pbkdf2::pbkdf2;
 
 /// Nb bits in Byte = 8
 /// entropy: between 16 Bytes and 32 Bytes
@@ -24,11 +25,16 @@ pub struct Mnemonic {
     mnemonic_words: Vec<String>,
     pub entropy: Entropy,
     pub passphrase: String,
+    pub seed: Bytes,
 }
 
 impl Display for Mnemonic {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.mnemonic_words.join(" "))
+        write!(
+            f,
+            "{}",
+            Mnemonic::get_phrase_from_words(&self.mnemonic_words)
+        )
     }
 }
 
@@ -50,13 +56,24 @@ impl Mnemonic {
         let words = Words::load(lang)?;
         let mnemonic_words =
             words.get_words_from_index(&Mnemonic::generate_word_index_list(&mut entropy)?)?;
-        // println!("4 >> {:?}", mnemonic_words);
 
+
+        let phrase = Mnemonic::get_phrase_from_words(&mnemonic_words);
+        println!("from_entropy >> {}", phrase);
+        let seed = Mnemonic::calc_seed(
+            &phrase,
+            &passphrase,
+        );
         Ok(Mnemonic {
             mnemonic_words: mnemonic_words,
-            passphrase: String::from(""),
+            passphrase: if let None = passphrase { "".to_owned() } else { passphrase.unwrap() },
             entropy: entropy,
+            seed,
         })
+    }
+
+    fn get_phrase_from_words(words: &Vec<String>) -> String {
+        words.join(" ")
     }
 
     fn generate_word_index_list(entropy: &mut Entropy) -> Result<Vec<u16>, BIP32Error> {
@@ -81,20 +98,40 @@ impl Mnemonic {
         (self.entropy.entropy.nb_bytes() + self.entropy.checksum_size()) / BITS_LEN_ITERATION
     }
 
-    // pub fn sha256(bytes: &Vec<u8>) -> Vec<u8> {
-    //     let mut hasher = Sha256::new();
-    //     hasher.update(bytes);
-    //     hasher.finalize().to_vec()
-    // }
-
     pub fn get_words(&self) -> Vec<&String> {
         self.mnemonic_words.iter().collect()
+    }
+
+    /// Mnemonic phrase must have at least 12 words, max 24 words and have to be divisible by 3
+    pub fn is_mnemonic_sentence_valid(sentence: String) -> bool {
+        let length = sentence.split(' ').into_iter().count();
+        length >= 12 && length <= 24 && length % 3 == 0
+    }
+
+    pub fn calc_seed(mnemonic_phrase: &String, passphrase: &Option<String>) -> Bytes {
+        let passphrase_string = if passphrase.is_none() {
+            ""
+        } else {
+            passphrase.as_ref().unwrap()
+        };
+        let header = "mnemonic".to_owned();
+
+        let salt = [passphrase_string.as_bytes(), header.as_bytes()].concat();
+        let seed = utils::Pbkdf2_hash(mnemonic_phrase.as_bytes().to_vec(), salt);
+
+        Bytes::new(seed)
     }
 }
 
 #[cfg(test)]
 mod tests {
     use std::u8;
+
+    use hmac::Hmac;
+    use pbkdf2::{
+        password_hash::{PasswordHasher, SaltString},
+        Pbkdf2,
+    };
 
     use crate::{
         error::BIP32Error, language::Language, mnemonic::EntropySize, utils, NB_BITS_IN_BYTE,
@@ -415,5 +452,85 @@ mod tests {
                 .len(),
             24
         );
+    }
+
+    #[test]
+    fn generate_mnemonic() {
+        let mnemonic_default_128 = Mnemonic::from_entropy(
+            Entropy::from_bytes_vec(generate_default_entropy(128 / NB_BITS_IN_BYTE)).unwrap(),
+            Some(String::from("TREZOR")),
+            crate::language::Language::English,
+        )
+        .unwrap();
+
+        println!("{:?}", mnemonic_default_128.seed);
+    }
+
+    #[test]
+    fn testttt() {
+        //let b = "TREZOR".as_bytes();
+        println!("{:?}", "TREZOR".as_bytes());
+        println!("{:?}", "trezor".as_bytes());
+
+        let passphrase = Some("TREZOR".to_owned());
+        let passphrase_string = if passphrase.is_none() {
+            "".to_owned()
+        } else {
+            passphrase.unwrap()
+        };
+        let header = "mnemonic".to_owned();
+
+        let salt_bytes = [header.as_bytes(), passphrase_string.as_bytes()].concat();
+        let salt_string = format!("mnemonic{}", passphrase_string);
+        let mnemonic = "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about".to_owned();
+        println!(
+            "Passphrase = {:?} \nHeader = {:?}\nSalt = {:?}\nSalt bytes = {:?}\nMnemonic = {:?}",
+            passphrase_string.as_bytes(),
+            header.as_bytes(),
+            salt_string,
+            salt_string.as_bytes(),
+            mnemonic.as_bytes()
+        );
+
+        println!(
+            "Compare : salt concat byte : {:?} - salt string concat then as byte : {:?}",
+            salt_bytes,
+            salt_string.as_bytes()
+        );
+        //let salt_string_old = SaltString::new(String::from_utf8(salt_bytes).unwrap().as_str());
+        let salt_string_new = SaltString::new(&salt_string).unwrap();
+        //println!("salt_string_old = {:?} - salt_string_new = {:?}", salt_string_old, salt_string_new);
+
+        //let seed_fail = Pbkdf2.hash_password(&mnemonic.as_bytes(), &salt).unwrap().to_string();
+
+        let mut seed = vec![0u8; 64];
+        pbkdf2::pbkdf2::<Hmac<sha2::Sha512>>(&mnemonic.as_bytes(), &salt_bytes, 2048, &mut seed);
+
+        // let seed = utils::Pbkdf2_hash(mnemonic.as_bytes().to_vec(), salt);
+        //println!("{}", seed);
+        println!("Seed = {:?}", &seed);
+        let zob = Pbkdf2
+            .hash_password(&mnemonic.as_bytes(), &salt_string)
+            .unwrap();
+        let hashed = zob.hash.unwrap();
+        // println!("Seed NEW = {:?}", hashed.);
+        // println!(
+        //     "Seed NEW 2 = {:?}",
+        //     utils::Pbkdf2_hash(
+        //         mnemonic.as_bytes().to_vec(),
+        //         [header.as_bytes(), passphrase_string.as_bytes()].concat()
+        //     )
+        //     .as_bytes()
+        // );
+
+        // [0]	197	byte
+        // [1]	82	byte
+        // [2]	87	byte
+        // [3]	195	byte
+        // [4]	96	byte
+        // [5]	192	byte
+        // [6]	124	byte
+        // [7]	114	byte
+        // [8]	2	byte
     }
 }

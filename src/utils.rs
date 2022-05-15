@@ -1,10 +1,30 @@
+use hmac::Hmac;
 use sha2::{Sha256, Digest};
+use pbkdf2::{
+    password_hash::{
+        rand_core::OsRng,
+        PasswordHash, PasswordHasher, PasswordVerifier, SaltString
+    },
+    Pbkdf2
+};
 
 /// Apply the SHA256 has function
 pub fn sha256(bytes: &Vec<u8>) -> Vec<u8> {
     let mut hasher = Sha256::new();
     hasher.update(bytes);
     hasher.finalize().to_vec()
+}
+
+pub fn Pbkdf2_hash(password: Vec<u8>, salt: Vec<u8>) -> Vec<u8> {
+    let mut seed = vec![0u8; 64];
+        pbkdf2::pbkdf2::<Hmac<sha2::Sha512>>(
+            &password,
+            &salt,
+            2048,
+            &mut seed,
+        );
+
+    seed
 }
 
 
