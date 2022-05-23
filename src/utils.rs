@@ -1,37 +1,44 @@
 use hmac::Hmac;
-use sha2::{Sha256, Digest};
-use pbkdf2::{
-    password_hash::{
-        rand_core::OsRng,
-        PasswordHash, PasswordHasher, PasswordVerifier, SaltString
-    },
-    Pbkdf2
-};
+use pbkdf2;
+use sha2::{Digest, Sha256};
+use unicode_normalization::UnicodeNormalization;
 
-/// Apply the SHA256 has function
+///
+/// Perform the SHA256 hash function
+///
 pub fn sha256(bytes: &Vec<u8>) -> Vec<u8> {
     let mut hasher = Sha256::new();
     hasher.update(bytes);
     hasher.finalize().to_vec()
 }
 
-pub fn Pbkdf2_hash(password: Vec<u8>, salt: Vec<u8>) -> Vec<u8> {
+///
+/// From documentation (https://github.com/bitcoin/bips/blob/master/bip-0039.mediawiki#from-mnemonic-to-seed)
+///     To create a binary seed from the mnemonic, we use the PBKDF2 function with a mnemonic sentence (in UTF-8 NFKD) used as the password and
+///     the string "mnemonic" + passphrase (again in UTF-8 NFKD) used as the salt. The iteration count is set to 2048 and HMAC-SHA512 is used as the pseudo-random function.
+///     The length of the derived key is 512 bits (= 64 bytes).
+///
+pub fn pbkdf2_hash(password: Vec<u8>, salt: Vec<u8>) -> Vec<u8> {
     let mut seed = vec![0u8; 64];
-        pbkdf2::pbkdf2::<Hmac<sha2::Sha512>>(
-            &password,
-            &salt,
-            2048,
-            &mut seed,
-        );
+    pbkdf2::pbkdf2::<Hmac<sha2::Sha512>>(&password, &salt, 2048, &mut seed);
 
     seed
 }
 
+///
+/// Normalize word to NFKD
+/// 
+pub fn to_utf8_nfkd(word: String) -> String {
+    word.nfkd().collect::<String>()
+}
 
 #[cfg(test)]
 mod tests {
-    use crate::{utils, entropy::Entropy};
+    use crate::{entropy::Entropy, utils};
 
+    ///
+    /// Test for sha256 hash
+    ///
     #[test]
     fn test_sha256() {
         let inputs = vec![
@@ -59,13 +66,9 @@ mod tests {
             )
         }
 
-        // And we test SHA256 on default entropy
-        // println!("{:X?}", Entropy::default().entropy.val);
-        // println!("{:X?}", Mnemonic::sha256(&Entropy::default().entropy.val));
-        // println!("{:X?}", hex::encode(Mnemonic::sha256(&Entropy::default().entropy.val)));
         assert_eq!(
-            hex::encode(utils::sha256(&Entropy::default().entropy.val)),
-            "66687aadf862bd776c8fc18b8e9f8e20089714856ee233b3902a591d0d5f2925"
+            hex::encode(utils::sha256(&Entropy::default().entropy.as_vec())),
+            String::from("66687aadf862bd776c8fc18b8e9f8e20089714856ee233b3902a591d0d5f2925")
         );
     }
 }

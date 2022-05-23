@@ -1,5 +1,8 @@
 use std::fmt::Display;
 
+///
+/// Represent all errors that can happen during the program
+/// 
 #[derive(Debug, PartialEq)]
 pub enum BIP32Error {
     /// More than 128 bits, less than 256 bits and be a multiple of 32
@@ -8,15 +11,17 @@ pub enum BIP32Error {
     /// Error when reading the language words
     ReadFile(String),
 
-    /// Coutn number doesn't match
+    /// Count number doesn't match
     InvalidWordsCount(usize),
 
+    /// Error while reading bit
     BitReader(String),
 
-    //No word found at selected index
+    ///No word found at selected index
     WordNotFound(u16),
 
-    HexEncode(String),
+    /// Error when trying to encode or decode from / hex
+    HexError(String),
 }
 
 impl BIP32Error {
@@ -27,13 +32,14 @@ impl BIP32Error {
             BIP32Error::InvalidWordsCount(nb) => String::from(format!("The words count ({}) is not valid", nb)),
             BIP32Error::BitReader(error) => String::from(format!("Error while reading bit : {}", error)),
             BIP32Error::WordNotFound(index) => String::from(format!("No word found at selected index {}", index)),
-            BIP32Error::HexEncode(error) => String::from(format!("Error when trying to encode hexadecimal {}", error)),
+            BIP32Error::HexError(error) => String::from(format!("Error when trying to encode or decode hexadecimal {}", error)),
         }
     }
 }
 
 impl Display for BIP32Error {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        // Use default message
         write!(f, "{}", self.message())
     }
 }

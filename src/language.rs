@@ -1,7 +1,20 @@
-use std::{env, fs, path::Path};
+use std::{fs, path::Path};
+use crate::{error::BIP32Error, utils};
 
-use crate::error::BIP32Error;
+///
+/// Number of words in mnemonic
+///
+pub enum WordsCount {
+    Words12,
+    Words15,
+    Words18,
+    Words21,
+    Words24,
+}
 
+///
+/// The mnemonic lang
+///
 pub enum Language {
     /// English words, bind to "english.txt"
     English,
@@ -10,12 +23,18 @@ pub enum Language {
     French,
 }
 
+///
+/// The 2048 words associate to the current language
+///
 pub struct Words {
     list: Vec<String>,
     language: Language,
 }
 
 impl Words {
+    ///
+    /// Load all words from lang file
+    ///
     pub fn load(language: Language) -> Result<Words, BIP32Error> {
         let language_content = Words::read_file(&language)?;
         let words = Words::read_words(language_content)?;
@@ -26,10 +45,20 @@ impl Words {
         })
     }
 
+    ///
+    /// Return the current language
+    /// 
+    pub fn current_language(&self) -> &Language {
+        &self.language
+    }
+
+    ///
     /// Open and read the file associate to current language
+    ///
     fn read_file(language: &Language) -> Result<String, BIP32Error> {
-        let read_file =
-            |path| fs::read_to_string(Path::new(path)).map_err(|e| BIP32Error::ReadFile(e.to_string()));
+        let read_file = |path| {
+            fs::read_to_string(Path::new(path)).map_err(|e| BIP32Error::ReadFile(e.to_string()))
+        };
 
         Ok(match language {
             Language::English => read_file("src/words/english.txt")?,
@@ -37,12 +66,14 @@ impl Words {
         })
     }
 
-    /// Read words and split them to vec
+    ///
+    /// Read words and split them to vector
+    ///
     fn read_words(content: String) -> Result<Vec<String>, BIP32Error> {
         let words: Vec<String> = content
             .split('\n')
             .into_iter()
-            .map(|x| String::from(x.trim()))
+            .map(|x| utils::to_utf8_nfkd(x.trim().to_owned()))
             .collect();
 
         if words.len() != 2048 {
@@ -52,30 +83,51 @@ impl Words {
         Ok(words)
     }
 
-    pub fn get_words_from_index(&self, index: &Vec<u16>) -> Result<Vec<String>, BIP32Error> {
+    ///
+    /// Get associated words from list of index
+    ///
+    pub fn get_words_from_index(&self, words_index: &Vec<u16>) -> Result<Vec<String>, BIP32Error> {
         let mut words: Vec<String> = vec![];
 
-        for i in index {
-            words.push(self
-            .list
-            .clone()
-            .into_iter()
-            .enumerate()
-            .find(|(index_word, _)| *i == *index_word as u16)
-            .map(|f| f.1)
-            .ok_or(BIP32Error::WordNotFound(*i))?);
+        for i in words_index {
+            words.push(
+                self.list
+                    .clone()
+                    .into_iter()
+                    .enumerate()
+                    .find(|(index_word, _)| *i == *index_word as u16)
+                    .map(|f| f.1)
+                    .ok_or(BIP32Error::WordNotFound(*i))?,
+            );
         }
 
-        if words.len() != index.len() {
+        // We need to have the same number of words than words index list
+        if words.len() != words_index.len() {
             return Err(BIP32Error::InvalidWordsCount(words.len()));
         }
 
         Ok(words)
     }
 
+    ///
     /// Does the current language have this word in the dictionnary ?
+    ///
     pub fn contain_word(&self, word: String) -> bool {
         self.list.iter().any(|w| w == &word)
+    }
+
+    ///
+    /// Generate mnemonic phrase from current words list
+    ///
+    pub fn get_phrase(&self) -> String {
+        Words::get_phrase_from_words(&self.list)
+    }
+
+    ///
+    /// Aggregate the list of string to build a string
+    ///
+    pub fn get_phrase_from_words(words: &Vec<String>) -> String {
+        words.join(" ")
     }
 }
 
@@ -85,9 +137,13 @@ mod tests {
 
     use super::{Language, Words};
 
-    fn all_language() -> Vec<Language> { vec![Language::English, Language::French] }
+    fn all_language() -> Vec<Language> {
+        vec![Language::English, Language::French]
+    }
 
-    /// Check if the file associeted to the current lang is not empty
+    ///
+    /// Check if the file associated to the current lang is not empty
+    ///
     #[test]
     fn test_read_file_should_succeed() {
         for lang in all_language().iter() {
@@ -96,7 +152,9 @@ mod tests {
         }
     }
 
+    ///
     /// Read the 2048 words associated to current lang
+    ///
     #[test]
     fn test_split_words_should_succeed() {
         for lang in all_language().iter() {
@@ -106,7 +164,9 @@ mod tests {
         }
     }
 
+    ///
     /// Split words from a bad parameter (empty string)
+    ///
     #[test]
     fn test_split_words_from_empty_string_should_err() {
         // Expected "InvalidWordsCount(1)" because split an empty string result in a 1 lenght vec
@@ -114,7 +174,9 @@ mod tests {
         assert_eq!(Words::read_words(String::from("")), expected_error);
     }
 
-
+    ///
+    /// Get words from the selected word index
+    ///
     #[test]
     fn test_get_words_from_index() {
         let words_index = vec![0, 2, 4, 6, 8, 10];
@@ -123,18 +185,39 @@ mod tests {
         let selected_words = words.get_words_from_index(&words_index).unwrap();
 
         assert_eq!(selected_words.len(), words_index.len());
-        assert_eq!(selected_words.first().unwrap(), "abandon");
+        assert_eq!(selected_words[0], "abandon");
         assert_eq!(selected_words[1], "able");
         assert_eq!(selected_words.last().unwrap(), "access");
     }
 
+    ///
+    /// Check if we have no trouble of getting multiple duplicate same word
+    ///
     #[test]
     fn test_get_words_from_index_with_duplicate() {
-        let words_index = vec![0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 102];
+        let words_index = vec![
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 102,
+        ];
         let words = Words::load(Language::English).unwrap();
 
         let selected_words = words.get_words_from_index(&words_index).unwrap();
 
         assert_eq!(selected_words.len(), words_index.len());
+    }
+
+    ///
+    /// Basic words concatenation
+    ///
+    #[test]
+    fn test_build_sentence() {
+        assert_eq!(
+            Words::get_phrase_from_words(&vec![
+                "Hi".to_owned(),
+                "im".to_owned(),
+                "gozu".to_owned()
+            ]),
+            String::from("Hi im gozu")
+        );
     }
 }
