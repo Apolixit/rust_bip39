@@ -18,9 +18,20 @@ pub enum WordsCount {
 pub enum Language {
     /// English words, bind to "english.txt"
     English,
-
-    /// English words, bind to "french.txt"
+    /// French words, bind to "french.txt"
     French,
+    /// Italian words, bind to "italian.txt"
+    Italian,
+    /// Japanese words, bind to "japanese.txt"
+    Japanese,
+    /// Korean words, bind to "korean.txt"
+    Korean,
+    /// Portugese words, bind to "portugese.txt"
+    Portugese,
+    /// Spanish words, bind to "spanish.txt"
+    Spanish,
+    /// Czech republic words, bind to "czech.txt"
+    Czech,
 }
 
 ///
@@ -63,6 +74,12 @@ impl Words {
         Ok(match language {
             Language::English => read_file("src/words/english.txt")?,
             Language::French => read_file("src/words/french.txt")?,
+            Language::Italian => read_file("src/words/italian.txt")?,
+            Language::Japanese => read_file("src/words/japanese.txt")?,
+            Language::Korean => read_file("src/words/korean.txt")?,
+            Language::Portugese => read_file("src/words/portugese.txt")?,
+            Language::Spanish => read_file("src/words/spanish.txt")?,
+            Language::Czech => read_file("src/words/czech.txt")?,
         })
     }
 

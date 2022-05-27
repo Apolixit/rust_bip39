@@ -27,7 +27,7 @@ impl EntropySize {
     }
 
     ///
-    /// Get nb bits associated from entropy size
+    /// Get nb bytes associated from entropy size
     ///
     pub fn nb_bytes(&self) -> usize {
         self.nb_bits() / NB_BITS_IN_BYTE

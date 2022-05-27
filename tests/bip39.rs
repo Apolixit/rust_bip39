@@ -1,4 +1,5 @@
 use bip39::entropy::Entropy;
+use bip39::generate_mnemonic;
 use bip39::language::Language;
 use bip39::mnemonic::{Mnemonic, Seed};
 
@@ -166,4 +167,88 @@ fn create_mnemonic_from_vectors() {
         assert_eq!(mnemonic_phrase, current_mnemonic.to_string());
         assert_eq!(seed_hex, current_seed.to_hex());
     }
+}
+
+#[test]
+fn create_mnemonic_from_all_language() {
+    // Vector from https://github.com/trezor/python-mnemonic/blob/master/vectors.json
+    let list = vec![
+        (
+            "00000000000000000000000000000000",
+            vec![
+                (Language::English, "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about"),
+                (Language::French, "abaisser abaisser abaisser abaisser abaisser abaisser abaisser abaisser abaisser abaisser abaisser abeille"),
+                (Language::Italian, "abaco abaco abaco abaco abaco abaco abaco abaco abaco abaco abaco abete"),
+                (Language::Japanese, "あいこくしん あいこくしん あいこくしん あいこくしん あいこくしん あいこくしん あいこくしん あいこくしん あいこくしん あいこくしん あいこくしん あおぞら"),
+                (Language::Korean, "가격 가격 가격 가격 가격 가격 가격 가격 가격 가격 가격 가능"),
+                (Language::Portugese, "abacate abacate abacate abacate abacate abacate abacate abacate abacate abacate abacate abater"),
+                (Language::Spanish, "ábaco ábaco ábaco ábaco ábaco ábaco ábaco ábaco ábaco ábaco ábaco abierto"),
+                (Language::Czech, "abdikace abdikace abdikace abdikace abdikace abdikace abdikace abdikace abdikace abdikace abdikace agrese"),
+            ],
+        )
+    ];
+
+    for (hexa, langs) in list.into_iter() {
+        for (lang, mnemonic_phrase) in langs.into_iter() {
+            let current_mnemonic = Mnemonic::from_entropy(
+                Entropy::from_hex(hexa.to_owned()).unwrap(),
+                lang,
+            )
+            .unwrap();
+    
+            assert_eq!(mnemonic_phrase, current_mnemonic.to_string());
+        }
+        
+    }
+}
+
+#[test]
+fn generate_new_mnemonic() {
+    assert_eq!(generate_mnemonic(bip39::language::WordsCount::Words24, Language::English).unwrap().get_words().len(), 24);
+    assert_eq!(generate_mnemonic(bip39::language::WordsCount::Words21, Language::English).unwrap().get_words().len(), 21);
+    assert_eq!(generate_mnemonic(bip39::language::WordsCount::Words18, Language::English).unwrap().get_words().len(), 18);
+    assert_eq!(generate_mnemonic(bip39::language::WordsCount::Words15, Language::English).unwrap().get_words().len(), 15);
+    assert_eq!(generate_mnemonic(bip39::language::WordsCount::Words12, Language::English).unwrap().get_words().len(), 12);
+}  
+
+fn japanese_test() {
+    let list = vec![
+        (
+            "00000000000000000000000000000000",
+            vec![
+                (Language::English, "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about"),
+                (Language::French, "abaisser abaisser abaisser abaisser abaisser abaisser abaisser abaisser abaisser abaisser abaisser abeille"),
+                (Language::Italian, "abaco abaco abaco abaco abaco abaco abaco abaco abaco abaco abaco abete"),
+                (Language::Japanese, "あいこくしん あいこくしん あいこくしん あいこくしん あいこくしん あいこくしん あいこくしん あいこくしん あいこくしん あいこくしん あいこくしん あおぞら"),
+                (Language::Korean, "가격 가격 가격 가격 가격 가격 가격 가격 가격 가격 가격 가능"),
+                (Language::Portugese, "abacate abacate abacate abacate abacate abacate abacate abacate abacate abacate abacate abater"),
+                (Language::Spanish, "ábaco ábaco ábaco ábaco ábaco ábaco ábaco ábaco ábaco ábaco ábaco abierto"),
+                (Language::Czech, "abdikace abdikace abdikace abdikace abdikace abdikace abdikace abdikace abdikace abdikace abdikace agrese"),
+            ],
+            "c55257c360c07c72029aebc1b53c05ed0362ada38ead3e3e9efa3708e53495531f09a6987599d18264c1e1c92f2cf141630c7a3c4ab7c81b2f001698e7463b04",
+        )
+    ];
+
+    let h = "00000000000000000000000000000000";
+    let l = Language::Japanese;
+    let m = "あいこくしん あいこくしん あいこくしん あいこくしん あいこくしん あいこくしん あいこくしん あいこくしん あいこくしん あいこくしん あいこくしん おぞら";
+    let s = "a262d6fb6122ecf45be09c50492b31f92e9beb7d9a845987a02cefda57a15f9c467a17872029a9e92299b5cbdf306e3a0ee620245cbd508959b6cb7ca637bd55";
+
+    let current_mnemonic = Mnemonic::from_entropy(
+        Entropy::from_hex(h.to_owned()).unwrap(),
+        l,
+    )
+    .unwrap();
+
+    println!("Mnemonic generated : {}", current_mnemonic.get_phrase());
+    let current_seed = Seed::new(
+        &current_mnemonic.get_phrase(),
+        &Some(String::from("㍍ガバヴァぱばぐゞちぢ十人十色")),
+    );
+
+    println!("second : {}", current_mnemonic.get_phrase());
+    //assert_eq!(m, current_mnemonic.get_phrase());
+    assert_eq!(s, current_seed.to_hex());
+        
+    
 }

@@ -13,7 +13,7 @@ pub fn sha256(bytes: &Vec<u8>) -> Vec<u8> {
 }
 
 ///
-/// From documentation (https://github.com/bitcoin/bips/blob/master/bip-0039.mediawiki#from-mnemonic-to-seed)
+/// From documentation (<https://github.com/bitcoin/bips/blob/master/bip-0039.mediawiki#from-mnemonic-to-seed>)
 ///     To create a binary seed from the mnemonic, we use the PBKDF2 function with a mnemonic sentence (in UTF-8 NFKD) used as the password and
 ///     the string "mnemonic" + passphrase (again in UTF-8 NFKD) used as the salt. The iteration count is set to 2048 and HMAC-SHA512 is used as the pseudo-random function.
 ///     The length of the derived key is 512 bits (= 64 bytes).
