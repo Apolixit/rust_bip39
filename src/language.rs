@@ -4,12 +4,28 @@ use crate::{error::BIP32Error, utils};
 ///
 /// Number of words in mnemonic
 ///
+#[derive(Debug, PartialEq)]
 pub enum WordsCount {
     Words12,
     Words15,
     Words18,
     Words21,
     Words24,
+}
+
+///
+/// Create words count from number
+///
+impl From<usize> for WordsCount {
+    fn from(len: usize) -> Self {
+        match len {
+            12 => WordsCount::Words12,
+            15 => WordsCount::Words15,
+            18 => WordsCount::Words18,
+            21 => WordsCount::Words21,
+            _ => WordsCount::Words24,
+        }
+    }
 }
 
 ///
